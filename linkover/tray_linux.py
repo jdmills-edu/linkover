@@ -89,6 +89,11 @@ class TrayApp:
             logger.info("Opening: %s", target)
             GLib.idle_add(_open_url, target)
 
+    def _clear_recent(self, _item: Gtk.MenuItem) -> None:
+        with self._lock:
+            self._recent.clear()
+        GLib.idle_add(self._refresh_menu)
+
     def _on_auto_open_toggled(self, item: Gtk.CheckMenuItem) -> None:
         self._auto_open = item.get_active()
         self._cfg["auto_open"] = self._auto_open
@@ -121,6 +126,12 @@ class TrayApp:
             placeholder = Gtk.MenuItem(label="No links yet")
             placeholder.set_sensitive(False)
             menu.append(placeholder)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        clear_item = Gtk.MenuItem(label="Clear recent")
+        clear_item.connect("activate", self._clear_recent)
+        menu.append(clear_item)
 
         menu.append(Gtk.SeparatorMenuItem())
 

@@ -29,6 +29,7 @@ class PushoverClient(threading.Thread):
         self._stop = threading.Event()
         self._ws: websocket.WebSocketApp | None = None
         self._is_first_fetch = True
+        self._last_seen_id: int = 0
 
     def stop(self) -> None:
         self._stop.set()
@@ -91,12 +92,25 @@ class PushoverClient(threading.Thread):
         if not messages:
             return
 
-        try:
-            self.on_messages(messages, is_initial)
-        except Exception:
-            logger.exception("on_messages callback raised")
-
         highest = max(m["id"] for m in messages)
+
+        if is_initial:
+            # On startup: add to menu but never auto-open pre-existing messages.
+            # Record highest ID so we don't re-open them if delete ever fails.
+            self._last_seen_id = highest
+            to_deliver = messages
+        else:
+            # Only deliver messages we haven't seen yet, so a failed delete
+            # can't cause old links to re-open on the next push.
+            to_deliver = [m for m in messages if m["id"] > self._last_seen_id]
+            self._last_seen_id = max(self._last_seen_id, highest)
+
+        if to_deliver:
+            try:
+                self.on_messages(to_deliver, is_initial)
+            except Exception:
+                logger.exception("on_messages callback raised")
+
         try:
             api.delete_messages(self.secret, self.device_id, highest)
         except Exception:
