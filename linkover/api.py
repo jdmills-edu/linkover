@@ -21,7 +21,10 @@ def register_device(secret: str, name: str = "linkover") -> dict:
         data={"secret": secret, "name": name, "os": "O"},
         timeout=15,
     )
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(
+            f"Device registration failed ({r.status_code}): {r.text}"
+        )
     body = r.json()
     if body.get("status") != 1:
         raise RuntimeError(f"Device registration failed: {body.get('errors', body)}")
