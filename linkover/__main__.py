@@ -4,7 +4,11 @@ import sys
 
 from . import api, config
 from .client import PushoverClient
-from .tray import TrayApp
+
+if sys.platform == "darwin":
+    from .tray_mac import TrayApp
+else:
+    from .tray_linux import TrayApp
 
 logging.basicConfig(
     level=logging.INFO,
