@@ -3,10 +3,19 @@ set -euo pipefail
 
 echo "==> Installing Linkover..."
 
+# If running inside a Flatpak sandbox (e.g. VSCodium), delegate everything to
+# the host shell so the venv is built with the real system Python, not the
+# Flatpak-bundled one.  The shebang in the installed script must resolve on
+# the host, which it won't if the venv uses the Flatpak's interpreter.
+if [ -n "${FLATPAK_ID:-}" ]; then
+    echo "    (detected Flatpak environment — delegating to host shell)"
+    exec flatpak-spawn --host bash "$(realpath "$0")" "$@"
+fi
+
 # pipx is the cleanest way to install Python CLI apps on immutable distros.
 # It gives linkover its own isolated virtualenv while making the binary
 # available on PATH via ~/.local/bin.
-if ! command -v pipx &>/dev/null; then
+if ! python3 -m pipx --version &>/dev/null; then
     echo "pipx not found — installing via pip..."
     pip install --user pipx
     python3 -m pipx ensurepath
@@ -15,7 +24,9 @@ fi
 
 # --system-site-packages lets the venv reach the system gi/PyGObject,
 # which is installed by GNOME and can't be pip-installed cleanly.
-pipx install --force --system-site-packages "$(dirname "$0")"
+PIPX_HOME="$HOME/.local/pipx" \
+PIPX_BIN_DIR="$HOME/.local/bin" \
+python3 -m pipx install --force --system-site-packages "$(dirname "$(realpath "$0")")"
 
 echo "==> Installing icon..."
 ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
