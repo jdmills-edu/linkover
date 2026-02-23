@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Share icon: three nodes connected by two lines -->
+  <line x1="8.59" y1="10.49" x2="15.41" y2="6.51"
+        stroke="#5BB8FF" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"
+        stroke="#5BB8FF" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="6"  cy="12" r="3" fill="#5BB8FF"/>
+  <circle cx="18" cy="5"  r="3" fill="#5BB8FF"/>
+  <circle cx="18" cy="19" r="3" fill="#5BB8FF"/>
+</svg>

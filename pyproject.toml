@@ -16,3 +16,6 @@ dependencies = [
 
 [project.scripts]
 linkover = "linkover.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+include = ["linkover/**"]

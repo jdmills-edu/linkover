@@ -15,6 +15,12 @@ fi
 
 pipx install --force "$(dirname "$0")"
 
+echo "==> Installing icon..."
+ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+mkdir -p "$ICON_DIR"
+cp "$(dirname "$0")/linkover/icons/linkover.svg" "$ICON_DIR/linkover.svg"
+gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+
 echo ""
 echo "==> Installing AppIndicator support for GNOME..."
 echo "    Linkover needs the 'AppIndicator and KStatusNotifierItem Support' extension."

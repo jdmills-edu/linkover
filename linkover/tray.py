@@ -14,18 +14,26 @@ _ICON_SIZE = 64
 
 
 def _build_icon_image() -> Image.Image:
-    """Draw a minimal chain-link icon for the system tray."""
-    img = Image.new("RGBA", (_ICON_SIZE, _ICON_SIZE), (0, 0, 0, 0))
+    """Draw a white share icon for the GNOME dark top bar."""
+    s = _ICON_SIZE
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    blue = (100, 180, 255, 255)
-    lw = 7
 
-    # Left ring
-    d.ellipse([4, 18, 34, 46], outline=blue, width=lw)
-    # Right ring
-    d.ellipse([30, 18, 60, 46], outline=blue, width=lw)
-    # Erase the inner overlap so the rings look interlinked
-    d.rectangle([32, 24, 36, 40], fill=(0, 0, 0, 0))
+    color = (255, 255, 255, 230)
+    node_r = 7
+    lw = 4
+
+    # Node positions — left hub, top-right, bottom-right
+    left = (s // 4,         s // 2)
+    top  = (s - s // 5,     s // 6)
+    bot  = (s - s // 5, 5 * s // 6)
+
+    # Lines drawn first so nodes sit on top
+    d.line([left, top], fill=color, width=lw)
+    d.line([left, bot], fill=color, width=lw)
+
+    for cx, cy in (left, top, bot):
+        d.ellipse([cx - node_r, cy - node_r, cx + node_r, cy + node_r], fill=color)
 
     return img
 
@@ -37,7 +45,7 @@ def _is_url(text: str) -> bool:
 def _notify(title: str, body: str) -> None:
     try:
         subprocess.Popen(
-            ["notify-send", "--icon=emblem-shared", "--app-name=Linkover", title, body]
+            ["notify-send", "--icon=linkover", "--app-name=Linkover", title, body]
         )
     except FileNotFoundError:
         logger.warning("notify-send not found — skipping desktop notification")
