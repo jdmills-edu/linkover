@@ -62,7 +62,7 @@ def main() -> None:
     if not cfg.get("secret") or not cfg.get("device_id"):
         cfg = _setup()
 
-    tray = TrayApp()
+    tray = TrayApp(cfg)
     ws = PushoverClient(cfg["secret"], cfg["device_id"], tray.on_messages)
 
     logger.info("Starting Linkover…")

@@ -20,7 +20,7 @@ class PushoverClient(threading.Thread):
         self,
         secret: str,
         device_id: str,
-        on_messages: Callable[[list[dict]], None],
+        on_messages: Callable[[list[dict], bool], None],
     ) -> None:
         super().__init__(daemon=True, name="pushover-ws")
         self.secret = secret
@@ -28,6 +28,7 @@ class PushoverClient(threading.Thread):
         self.on_messages = on_messages
         self._stop = threading.Event()
         self._ws: websocket.WebSocketApp | None = None
+        self._is_first_fetch = True
 
     def stop(self) -> None:
         self._stop.set()
@@ -78,6 +79,9 @@ class PushoverClient(threading.Thread):
         self._ws.run_forever(ping_interval=30, ping_timeout=10)
 
     def _fetch_and_deliver(self) -> None:
+        is_initial = self._is_first_fetch
+        self._is_first_fetch = False
+
         try:
             messages = api.fetch_messages(self.secret, self.device_id)
         except Exception:
@@ -88,7 +92,7 @@ class PushoverClient(threading.Thread):
             return
 
         try:
-            self.on_messages(messages)
+            self.on_messages(messages, is_initial)
         except Exception:
             logger.exception("on_messages callback raised")
 

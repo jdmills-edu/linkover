@@ -7,6 +7,8 @@ from pathlib import Path
 import rumps
 from PIL import Image, ImageDraw
 
+from . import config as _config
+
 logger = logging.getLogger(__name__)
 
 _MAX_RECENT = 10
@@ -56,14 +58,16 @@ def _notify(title: str, body: str) -> None:
 
 
 class TrayApp(rumps.App):
-    def __init__(self) -> None:
+    def __init__(self, cfg: dict) -> None:
         super().__init__("Linkover", icon=_ensure_icon(), quit_button=None)
+        self._cfg = cfg
+        self._auto_open: bool = cfg.get("auto_open", True)
         self._lock = threading.Lock()
         self._recent: deque[dict] = deque(maxlen=_MAX_RECENT)
 
         # Messages from the WebSocket thread are queued here and drained
         # by a timer on the main thread — rumps requires UI changes on main.
-        self._pending: list[dict] = []
+        self._pending: list[tuple[dict, bool]] = []
         self._pending_lock = threading.Lock()
 
         self._rebuild_menu()
@@ -75,9 +79,9 @@ class TrayApp(rumps.App):
     # Called from the WebSocket thread — enqueue only, no UI work here
     # ------------------------------------------------------------------
 
-    def on_messages(self, messages: list[dict]) -> None:
+    def on_messages(self, messages: list[dict], is_initial: bool = False) -> None:
         with self._pending_lock:
-            self._pending.extend(messages)
+            self._pending.extend((msg, is_initial) for msg in messages)
 
     # ------------------------------------------------------------------
     # Internal — all UI work happens here, on the main thread via timer
@@ -87,13 +91,13 @@ class TrayApp(rumps.App):
         with self._pending_lock:
             if not self._pending:
                 return
-            messages, self._pending = list(self._pending), []
+            pending, self._pending = list(self._pending), []
 
-        for msg in messages:
-            self._handle_message(msg)
+        for msg, is_initial in pending:
+            self._handle_message(msg, auto_open=self._auto_open and not is_initial)
         self._rebuild_menu()
 
-    def _handle_message(self, msg: dict) -> None:
+    def _handle_message(self, msg: dict, auto_open: bool = True) -> None:
         url = msg.get("url") or ""
         body = msg.get("message") or ""
         title = msg.get("title") or "Linkover"
@@ -106,9 +110,15 @@ class TrayApp(rumps.App):
 
         _notify(title, display_body)
 
-        if target:
+        if target and auto_open:
             logger.info("Opening: %s", target)
             _open_url(target)
+
+    def _on_auto_open_toggled(self, sender: rumps.MenuItem) -> None:
+        self._auto_open = not self._auto_open
+        self._cfg["auto_open"] = self._auto_open
+        _config.save(self._cfg)
+        self._rebuild_menu()
 
     def _rebuild_menu(self) -> None:
         with self._lock:
@@ -132,6 +142,12 @@ class TrayApp(rumps.App):
                 items.append(item)
         else:
             items.append(rumps.MenuItem("No links yet"))
+
+        items.append(None)  # separator
+
+        auto_open_item = rumps.MenuItem("Auto-open links", callback=self._on_auto_open_toggled)
+        auto_open_item.state = int(self._auto_open)
+        items.append(auto_open_item)
 
         items.append(None)  # separator
         items.append(rumps.MenuItem("Quit", callback=lambda _: rumps.quit_application()))

@@ -15,6 +15,8 @@ except ValueError:
 
 from gi.repository import GLib, Gtk
 
+from . import config as _config
+
 logger = logging.getLogger(__name__)
 
 _MAX_RECENT = 10
@@ -43,7 +45,9 @@ def _notify(title: str, body: str) -> None:
 
 
 class TrayApp:
-    def __init__(self) -> None:
+    def __init__(self, cfg: dict) -> None:
+        self._cfg = cfg
+        self._auto_open: bool = cfg.get("auto_open", True)
         self._lock = threading.Lock()
         self._recent: deque[dict] = deque(maxlen=_MAX_RECENT)
 
@@ -59,16 +63,16 @@ class TrayApp:
     # Called from the WebSocket thread
     # ------------------------------------------------------------------
 
-    def on_messages(self, messages: list[dict]) -> None:
+    def on_messages(self, messages: list[dict], is_initial: bool = False) -> None:
         for msg in messages:
-            self._handle_message(msg)
+            self._handle_message(msg, auto_open=self._auto_open and not is_initial)
         GLib.idle_add(self._refresh_menu)
 
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
 
-    def _handle_message(self, msg: dict) -> None:
+    def _handle_message(self, msg: dict, auto_open: bool = True) -> None:
         url = msg.get("url") or ""
         body = msg.get("message") or ""
         title = msg.get("title") or "Linkover"
@@ -81,9 +85,14 @@ class TrayApp:
 
         _notify(title, display_body)
 
-        if target:
+        if target and auto_open:
             logger.info("Opening: %s", target)
             GLib.idle_add(_open_url, target)
+
+    def _on_auto_open_toggled(self, item: Gtk.CheckMenuItem) -> None:
+        self._auto_open = item.get_active()
+        self._cfg["auto_open"] = self._auto_open
+        _config.save(self._cfg)
 
     def _refresh_menu(self) -> bool:
         self._indicator.set_menu(self._build_menu())
@@ -112,6 +121,13 @@ class TrayApp:
             placeholder = Gtk.MenuItem(label="No links yet")
             placeholder.set_sensitive(False)
             menu.append(placeholder)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        auto_open_item = Gtk.CheckMenuItem(label="Auto-open links")
+        auto_open_item.set_active(self._auto_open)
+        auto_open_item.connect("toggled", self._on_auto_open_toggled)
+        menu.append(auto_open_item)
 
         menu.append(Gtk.SeparatorMenuItem())
 
