@@ -13,7 +13,9 @@ if ! command -v pipx &>/dev/null; then
     echo "Restart your shell or run: source ~/.bashrc"
 fi
 
-pipx install --force "$(dirname "$0")"
+# --system-site-packages lets the venv reach the system gi/PyGObject,
+# which is installed by GNOME and can't be pip-installed cleanly.
+pipx install --force --system-site-packages "$(dirname "$0")"
 
 echo "==> Installing icon..."
 ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
