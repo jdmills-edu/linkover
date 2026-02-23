@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Linkover
+Comment=Pushover link sharing client
+Exec=linkover
+Icon=emblem-shared
+Terminal=false
+Categories=Network;Utility;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

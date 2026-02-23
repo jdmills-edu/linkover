@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "linkover"
+version = "0.1.0"
+description = "Pushover-based link sharing client for GNOME"
+requires-python = ">=3.10"
+dependencies = [
+    "websocket-client>=1.6",
+    "requests>=2.28",
+    "pystray>=0.19",
+    "Pillow>=9.0",
+]
+
+[project.scripts]
+linkover = "linkover.__main__:main"
