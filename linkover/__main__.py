@@ -1,5 +1,7 @@
 import getpass
 import logging
+import re
+import socket
 import sys
 
 from . import api, config
@@ -37,10 +39,13 @@ def _setup() -> dict:
             sys.exit(1)
 
     secret = result["secret"]
-    print("\nRegistering device…")
+
+    hostname = socket.gethostname().split(".")[0]
+    device_name = re.sub(r"[^a-zA-Z0-9_-]", "-", f"linkover-{hostname}")[:25]
+    print(f"\nRegistering device as '{device_name}'…")
 
     try:
-        device = api.register_device(secret)
+        device = api.register_device(secret, name=device_name)
     except Exception as exc:
         print(f"Device registration failed: {exc}", file=sys.stderr)
         sys.exit(1)

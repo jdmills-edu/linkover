@@ -15,7 +15,7 @@ def login(email: str, password: str, twofa: str | None = None) -> dict:
     return body
 
 
-def register_device(secret: str, name: str = "linkover-linux") -> dict:
+def register_device(secret: str, name: str = "linkover") -> dict:
     r = requests.post(
         f"{_BASE}/devices.json",
         data={"secret": secret, "name": name, "os": "O"},
