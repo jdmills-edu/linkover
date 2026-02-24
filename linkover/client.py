@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 import websocket
 
-from . import api
+from . import api, config
 
 logger = logging.getLogger(__name__)
 
@@ -18,18 +18,16 @@ class PushoverClient(threading.Thread):
 
     def __init__(
         self,
-        secret: str,
-        device_id: str,
+        cfg: dict,
         on_messages: Callable[[list[dict], bool], None],
     ) -> None:
         super().__init__(daemon=True, name="pushover-ws")
-        self.secret = secret
-        self.device_id = device_id
+        self._cfg = cfg
         self.on_messages = on_messages
         self._stop = threading.Event()
         self._ws: websocket.WebSocketApp | None = None
         self._is_first_fetch = True
-        self._last_seen_id: int = 0
+        self._last_seen_id: int = cfg.get("last_seen_id", 0)
 
     def stop(self) -> None:
         self._stop.set()
@@ -49,7 +47,7 @@ class PushoverClient(threading.Thread):
     def _connect(self) -> None:
         def on_open(ws: websocket.WebSocketApp) -> None:
             logger.info("WebSocket open — logging in")
-            ws.send(f"login:{self.device_id}:{self.secret}\n")
+            ws.send(f"login:{self._cfg['device_id']}:{self._cfg['secret']}\n")
 
         def on_message(ws: websocket.WebSocketApp, raw: bytes | str) -> None:
             signal = raw.decode() if isinstance(raw, bytes) else raw
@@ -84,7 +82,7 @@ class PushoverClient(threading.Thread):
         self._is_first_fetch = False
 
         try:
-            messages = api.fetch_messages(self.secret, self.device_id)
+            messages = api.fetch_messages(self._cfg["secret"], self._cfg["device_id"])
         except Exception:
             logger.exception("Failed to fetch messages")
             return
@@ -94,16 +92,14 @@ class PushoverClient(threading.Thread):
 
         highest = max(m["id"] for m in messages)
 
-        if is_initial:
-            # On startup: add to menu but never auto-open pre-existing messages.
-            # Record highest ID so we don't re-open them if delete ever fails.
-            self._last_seen_id = highest
-            to_deliver = messages
-        else:
-            # Only deliver messages we haven't seen yet, so a failed delete
-            # can't cause old links to re-open on the next push.
-            to_deliver = [m for m in messages if m["id"] > self._last_seen_id]
-            self._last_seen_id = max(self._last_seen_id, highest)
+        # Filter to only messages we haven't seen yet.  _last_seen_id is now
+        # persisted across restarts, so cleared/old messages never reappear.
+        to_deliver = [m for m in messages if m["id"] > self._last_seen_id]
+        self._last_seen_id = max(self._last_seen_id, highest)
+
+        # Persist so the next startup knows where we left off.
+        self._cfg["last_seen_id"] = self._last_seen_id
+        config.save(self._cfg)
 
         if to_deliver:
             try:
@@ -112,6 +108,6 @@ class PushoverClient(threading.Thread):
                 logger.exception("on_messages callback raised")
 
         try:
-            api.delete_messages(self.secret, self.device_id, highest)
+            api.delete_messages(self._cfg["secret"], self._cfg["device_id"], highest)
         except Exception:
             logger.exception("Failed to delete messages")

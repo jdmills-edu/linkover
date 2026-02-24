@@ -15,7 +15,7 @@ except ValueError:
 
 from gi.repository import GLib, Gtk
 
-from . import config as _config
+from . import api, config as _config
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +91,21 @@ class TrayApp:
 
     def _clear_recent(self, _item: Gtk.MenuItem) -> None:
         with self._lock:
+            highest = max((m["id"] for m in self._recent), default=None)
             self._recent.clear()
         GLib.idle_add(self._refresh_menu)
+        if highest is not None:
+            threading.Thread(
+                target=self._delete_from_pushover,
+                args=(highest,),
+                daemon=True,
+            ).start()
+
+    def _delete_from_pushover(self, highest_id: int) -> None:
+        try:
+            api.delete_messages(self._cfg["secret"], self._cfg["device_id"], highest_id)
+        except Exception:
+            logger.exception("Failed to delete messages from Pushover")
 
     def _on_auto_open_toggled(self, item: Gtk.CheckMenuItem) -> None:
         self._auto_open = item.get_active()

@@ -63,7 +63,7 @@ def main() -> None:
         cfg = _setup()
 
     tray = TrayApp(cfg)
-    ws = PushoverClient(cfg["secret"], cfg["device_id"], tray.on_messages)
+    ws = PushoverClient(cfg, tray.on_messages)
 
     logger.info("Starting Linkover…")
     ws.start()

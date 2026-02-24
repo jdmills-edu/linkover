@@ -7,7 +7,7 @@ from pathlib import Path
 import rumps
 from PIL import Image, ImageDraw
 
-from . import config as _config
+from . import api, config as _config
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +114,24 @@ class TrayApp(rumps.App):
             logger.info("Opening: %s", target)
             _open_url(target)
 
+    def _clear_recent(self, _sender: rumps.MenuItem) -> None:
+        with self._lock:
+            highest = max((m["id"] for m in self._recent), default=None)
+            self._recent.clear()
+        self._rebuild_menu()
+        if highest is not None:
+            threading.Thread(
+                target=self._delete_from_pushover,
+                args=(highest,),
+                daemon=True,
+            ).start()
+
+    def _delete_from_pushover(self, highest_id: int) -> None:
+        try:
+            api.delete_messages(self._cfg["secret"], self._cfg["device_id"], highest_id)
+        except Exception:
+            logger.exception("Failed to delete messages from Pushover")
+
     def _on_auto_open_toggled(self, sender: rumps.MenuItem) -> None:
         self._auto_open = not self._auto_open
         self._cfg["auto_open"] = self._auto_open
@@ -143,6 +161,8 @@ class TrayApp(rumps.App):
         else:
             items.append(rumps.MenuItem("No links yet"))
 
+        items.append(None)  # separator
+        items.append(rumps.MenuItem("Clear recent", callback=self._clear_recent))
         items.append(None)  # separator
 
         auto_open_item = rumps.MenuItem("Auto-open links", callback=self._on_auto_open_toggled)
